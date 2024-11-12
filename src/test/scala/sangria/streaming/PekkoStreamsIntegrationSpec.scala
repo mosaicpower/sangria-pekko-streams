@@ -1,28 +1,27 @@
 package sangria.streaming
 
-import java.util.concurrent.atomic.AtomicInteger
-
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Source}
-
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
-import scala.language.postfixOps
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.ActorMaterializer
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class AkkStreamsIntegrationSpec extends AnyWordSpec with Matchers {
-  implicit val system = ActorSystem("test")
-  implicit val mat = ActorMaterializer
+import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.duration.*
+import scala.concurrent.{Await, Future}
+import scala.language.postfixOps
 
-  val impl: SubscriptionStream[akkaStreams.AkkaSource] =
-    new akkaStreams.AkkaStreamsSubscriptionStream
+class PekkoStreamsIntegrationSpec extends AnyWordSpec with Matchers {
+  implicit val system: ActorSystem = ActorSystem("test")
+  implicit val mat: ActorMaterializer.type = ActorMaterializer
 
-  "AkkaStreams Integration" should {
+  val impl: SubscriptionStream[pekkoStreams.PekkoSource] =
+    new pekkoStreams.PekkoStreamsSubscriptionStream
+
+  "PekkoStreams Integration" should {
     "support itself" in {
-      impl.supported(akkaStreams.akkaSubscriptionStream) should be(true)
+      impl.supported(pekkoStreams.pekkoSubscriptionStream) should be(true)
     }
 
     "map" in {

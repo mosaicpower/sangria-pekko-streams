@@ -1,17 +1,16 @@
 package sangria.streaming
 
-import scala.language.higherKinds
-import akka.NotUsed
-import akka.event.Logging
-import akka.stream.ActorAttributes.SupervisionStrategy
-import akka.stream._
-import akka.stream.scaladsl.{Merge, Sink, Source}
-import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.event.Logging
+import org.apache.pekko.stream.*
+import org.apache.pekko.stream.ActorAttributes.SupervisionStrategy
+import org.apache.pekko.stream.scaladsl.{Merge, Sink, Source}
+import org.apache.pekko.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 
 import scala.concurrent.Future
 
-object akkaStreams {
-  type AkkaSource[+T] = Source[T, NotUsed]
+object pekkoStreams {
+  type PekkoSource[+T] = Source[T, NotUsed]
 
   abstract class SimpleLinearGraphStage[T] extends GraphStage[FlowShape[T, T]] {
     val in = Inlet[T](Logging.simpleName(this) + ".in")
@@ -19,34 +18,34 @@ object akkaStreams {
     override val shape = FlowShape(in, out)
   }
 
-  class AkkaStreamsSubscriptionStream(implicit materializer: Materializer)
-      extends SubscriptionStream[AkkaSource] {
+  class PekkoStreamsSubscriptionStream(implicit materializer: Materializer)
+      extends SubscriptionStream[PekkoSource] {
     def supported[T[_]](other: SubscriptionStream[T]) =
-      other.isInstanceOf[AkkaStreamsSubscriptionStream]
+      other.isInstanceOf[PekkoStreamsSubscriptionStream]
 
-    def map[A, B](source: AkkaSource[A])(fn: A => B) = source.map(fn)
+    def map[A, B](source: PekkoSource[A])(fn: A => B) = source.map(fn)
 
     def singleFuture[T](value: Future[T]) = Source.future(value)
 
     def single[T](value: T) = Source.single(value)
 
-    def mapFuture[A, B](source: AkkaSource[A])(fn: A => Future[B]) =
+    def mapFuture[A, B](source: PekkoSource[A])(fn: A => Future[B]) =
       source.mapAsync(1)(fn)
 
-    def first[T](s: AkkaSource[T]) = s.runWith(Sink.head)
+    def first[T](s: PekkoSource[T]) = s.runWith(Sink.head)
 
-    def failed[T](e: Throwable) = Source.failed(e).asInstanceOf[AkkaSource[T]]
+    def failed[T](e: Throwable) = Source.failed(e).asInstanceOf[PekkoSource[T]]
 
-    def onComplete[Ctx, Res](result: AkkaSource[Res])(op: => Unit) =
+    def onComplete[Ctx, Res](result: PekkoSource[Res])(op: => Unit) =
       result
         .via(OnComplete(() => op))
         .recover { case e => op; throw e }
-        .asInstanceOf[AkkaSource[Res]]
+        .asInstanceOf[PekkoSource[Res]]
 
-    def flatMapFuture[Ctx, Res, T](future: Future[T])(resultFn: T => AkkaSource[Res]) =
+    def flatMapFuture[Ctx, Res, T](future: Future[T])(resultFn: T => PekkoSource[Res]) =
       Source.future(future).flatMapMerge(1, resultFn)
 
-    def merge[T](streams: Vector[AkkaSource[T]]) =
+    def merge[T](streams: Vector[PekkoSource[T]]) =
       if (streams.size > 1)
         Source.combine(streams(0), streams(1), streams.drop(2): _*)(Merge(_))
       else if (streams.nonEmpty)
@@ -54,21 +53,21 @@ object akkaStreams {
       else
         throw new IllegalStateException("No streams produced!")
 
-    def recover[T](stream: AkkaSource[T])(fn: Throwable => T) =
+    def recover[T](stream: PekkoSource[T])(fn: Throwable => T) =
       stream.recover { case e => fn(e) }
   }
 
-  implicit def akkaSubscriptionStream(implicit
-      materializer: Materializer): SubscriptionStream[AkkaSource] =
-    new AkkaStreamsSubscriptionStream
+  implicit def pekkoSubscriptionStream(implicit
+      materializer: Materializer): SubscriptionStream[PekkoSource] =
+    new PekkoStreamsSubscriptionStream
 
-  implicit def akkaStreamIsValidSubscriptionStream[A[_, _], Ctx, Res, Out](implicit
+  implicit def pekkoStreamIsValidSubscriptionStream[A[_, _], Ctx, Res, Out](implicit
       materializer: Materializer,
       ev1: ValidOutStreamType[Res, Out])
       : SubscriptionStreamLike[Source[A[Ctx, Res], NotUsed], A, Ctx, Res, Out] =
     new SubscriptionStreamLike[Source[A[Ctx, Res], NotUsed], A, Ctx, Res, Out] {
-      type StreamSource[X] = AkkaSource[X]
-      val subscriptionStream = new AkkaStreamsSubscriptionStream
+      type StreamSource[X] = PekkoSource[X]
+      val subscriptionStream: SubscriptionStream[PekkoSource] = new PekkoStreamsSubscriptionStream
     }
 
   private final case class OnComplete[T](op: () => Unit) extends SimpleLinearGraphStage[T] {

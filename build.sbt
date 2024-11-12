@@ -1,58 +1,48 @@
-name := "sangria-akka-streams"
-organization := "org.sangria-graphql"
-mimaPreviousArtifacts := Set("org.sangria-graphql" %% "sangria-akka-streams" % "1.0.2")
+import xerial.sbt.Sonatype.sonatypeCentralHost
 
-description := "Sangria akka-streams integration"
+name := "sangria-pekko-streams"
+version := "0.1.0"
+versionScheme := Some("semver-spec")
+organization := "com.mosaicpower"
+description := "Sangria pekko-streams integration"
 homepage := Some(url("https://sangria-graphql.github.io/"))
 licenses := Seq(
-  "Apache License, ASL Version 2.0" → url("https://www.apache.org/licenses/LICENSE-2.0"))
+  "Apache License, ASL Version 2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0"))
+scmInfo := Some(
+  ScmInfo(
+    browseUrl = url("https://github.com/mosaicpower/sangria-pekko-streams"),
+    connection = "scm:git@github.com:mosaicpower/sangria-pekko-streams.git"
+  ))
 
-ThisBuild / crossScalaVersions := Seq("2.12.20", "2.13.15")
-ThisBuild / scalaVersion := crossScalaVersions.value.last
-ThisBuild / githubWorkflowPublishTargetBranches := List()
-ThisBuild / githubWorkflowBuildPreamble ++= List(
-  WorkflowStep.Sbt(List("mimaReportBinaryIssues"), name = Some("Check binary compatibility")),
-  WorkflowStep.Sbt(List("scalafmtCheckAll"), name = Some("Check formatting"))
-)
+developers :=
+  List(
+    Developer("OlegIlyenko", "Oleg Ilyenko", "", url("https://github.com/OlegIlyenko")),
+    Developer(
+      "bmironenko",
+      "Basil Mironenko",
+      "basilm@mosaicpower.com",
+      url("https://mosaicpower.com/")
+    )
+  )
 
-scalacOptions ++= Seq("-deprecation", "-feature", "-target:jvm-1.8")
-javacOptions ++= Seq("-source", "8", "-target", "8")
+crossScalaVersions := Seq("2.13.15", "3.5.2")
+scalaVersion := crossScalaVersions.value.last
+
+sonatypeProfileName := "com.mosaicpower"
+sonatypeCredentialHost := sonatypeCentralHost
+publishConfiguration := publishConfiguration.value.withOverwrite(true)
+publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true)
+publishTo := sonatypePublishToBundle.value
+publishArtifact := true
+publishMavenStyle := true
+
+Compile / scalacOptions := scalaVersion.map { v: String =>
+  val default = Seq("-deprecation", "-unchecked", "-feature")
+  if (v.startsWith("3")) default else default ++ Seq("-Ywarn-dead-code", "-Xsource:3")
+}.value
 
 libraryDependencies ++= Seq(
   "org.sangria-graphql" %% "sangria-streaming-api" % "1.0.3",
-  "com.typesafe.akka" %% "akka-stream" % "2.6.20",
-  "org.scalatest" %% "scalatest" % "3.2.19" % Test)
-
-// Release
-ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
-ThisBuild / githubWorkflowPublishTargetBranches :=
-  Seq(RefPredicate.StartsWith(Ref.Tag("v")))
-ThisBuild / githubWorkflowPublish := Seq(
-  WorkflowStep.Sbt(
-    List("ci-release"),
-    env = Map(
-      "PGP_PASSPHRASE" -> "${{ secrets.PGP_PASSPHRASE }}",
-      "PGP_SECRET" -> "${{ secrets.PGP_SECRET }}",
-      "SONATYPE_PASSWORD" -> "${{ secrets.SONATYPE_PASSWORD }}",
-      "SONATYPE_USERNAME" -> "${{ secrets.SONATYPE_USERNAME }}"
-    )
-  )
+  "org.apache.pekko" %% "pekko-stream" % "1.1.2",
+  "org.scalatest" %% "scalatest" % "3.2.19" % Test
 )
-
-startYear := Some(2016)
-organizationHomepage := Some(url("https://github.com/sangria-graphql"))
-developers := Developer(
-  "OlegIlyenko",
-  "Oleg Ilyenko",
-  "",
-  url("https://github.com/OlegIlyenko")) :: Nil
-scmInfo := Some(
-  ScmInfo(
-    browseUrl = url("https://github.com/sangria-graphql/sangria-akka-streams"),
-    connection = "scm:git:git@github.com:sangria-graphql/sangria-akka-streams.git"
-  ))
-
-// nice *magenta* prompt!
-ThisBuild / shellPrompt := { state =>
-  scala.Console.MAGENTA + Project.extract(state).currentRef.project + "> " + scala.Console.RESET
-}
